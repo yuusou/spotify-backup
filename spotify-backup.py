@@ -249,6 +249,7 @@ def main():
         playlist_data = spotify.list(
             "users/{user_id}/playlists".format(user_id=me["id"]), {"limit": 50}
         )
+        playlist_data.sort(key=lambda playlist: playlist.get("created_at", ""), reverse=True)
         logging.info(f"Found {len(playlist_data)} playlists")
 
         # TUI for selecting playlists
