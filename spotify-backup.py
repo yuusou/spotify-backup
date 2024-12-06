@@ -267,7 +267,7 @@ def main():
             playlist["tracks"] = spotify.list(
                 playlist["tracks"]["href"], {"limit": 100}
             )
-            playlist["tracks"].sort(key=lambda track: track.get("added_at", ""))
+            playlist["tracks"].sort(key=lambda track: track.get("added_at", ""), reverse=True)
 
         playlists += selected_playlists
 
