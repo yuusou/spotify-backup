@@ -14,6 +14,8 @@ import urllib.parse
 import urllib.request
 import webbrowser
 import curses
+from typing import Any
+from datetime import datetime
 
 logging.basicConfig(level=20, datefmt="%I:%M:%S", format="[%(asctime)s] %(message)s")
 
@@ -41,7 +43,7 @@ class SpotifyAPI:
                 reader = codecs.getreader("utf-8")
                 return json.load(reader(res))
             except Exception as err:
-                logging.info("Couldn't load URL: {} ({})".format(url, err))
+                logging.info("Couldn't load URL: %s (%s)", url, err)
                 time.sleep(2)
                 logging.info("Trying again...")
         sys.exit(1)
@@ -56,7 +58,7 @@ class SpotifyAPI:
         while response["next"]:
             if time.time() > last_log_time + 15:
                 last_log_time = time.time()
-                logging.info(f"Loaded {len(items)}/{response['total']} items")
+                logging.info("Loaded %d/%d items", len(items), response["total"])
 
             response = self.get(response["next"])
             items += response["items"]
@@ -65,7 +67,7 @@ class SpotifyAPI:
     # Pops open a browser window for a user to log in and authorize API access.
     @staticmethod
     def authorize(client_id, scope):
-        url = "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(
+        url: str = "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode(
             {
                 "response_type": "token",
                 "client_id": client_id,
@@ -75,7 +77,7 @@ class SpotifyAPI:
                 ),
             }
         )
-        logging.info(f"Logging in (click if it doesn't open automatically): {url}")
+        logging.info("Logging in (click if it doesn't open automatically): %s", url)
         webbrowser.open(url)
 
         # Start a simple, local HTTP server to listen for the authorization token... (i.e. a hack).
@@ -122,7 +124,7 @@ class SpotifyAPI:
                 )
 
                 access_token = re.search("access_token=([^&]*)", self.path).group(1)
-                logging.info(f"Received access token from Spotify: {access_token}")
+                logging.info("Received access token from Spotify: %s", access_token)
                 raise SpotifyAPI._Authorization(access_token)
 
             else:
@@ -133,7 +135,7 @@ class SpotifyAPI:
             pass
 
     class _Authorization(Exception):
-        def __init__(self, access_token):
+        def __init__(self, access_token: str):
             self.access_token = access_token
 
 
@@ -231,10 +233,10 @@ def main():
     # Get the ID of the logged in user.
     logging.info("Loading user info...")
     me = spotify.get("me")
-    logging.info("Logged in as {display_name} ({id})".format(**me))
+    logging.info("Logged in as %(display_name)s (%(id)s)", me)
 
-    playlists = []
-    liked_albums = []
+    playlists: list[dict[str, Any]] = []
+    liked_albums: list[dict[str, Any]] = []
 
     # List liked albums and songs
     if "liked" in args.dump:
@@ -249,8 +251,8 @@ def main():
         playlist_data = spotify.list(
             "users/{user_id}/playlists".format(user_id=me["id"]), {"limit": 50}
         )
-        playlist_data.sort(key=lambda playlist: playlist.get("created_at", ""), reverse=True)
-        logging.info(f"Found {len(playlist_data)} playlists")
+        playlist_data.reverse()
+        logging.info("Found %d playlists", len(playlist_data))
 
         # TUI for selecting playlists
         selected_playlists = tui_select_playlists(playlist_data)
@@ -263,12 +265,23 @@ def main():
         # List all tracks in each selected playlist
         for playlist in selected_playlists:
             logging.info(
-                f'Loading playlist: {playlist["name"]} ({playlist["tracks"]["total"]} songs)'
+                "Loading playlist: %s (%d song(s))",
+                playlist["name"],
+                playlist["tracks"]["total"],
             )
             playlist["tracks"] = spotify.list(
                 playlist["tracks"]["href"], {"limit": 100}
             )
-            playlist["tracks"].sort(key=lambda track: track.get("added_at", ""), reverse=True)
+
+            # Get playlist creation date and add one second
+            playlist_creation_date = datetime.fromisoformat(playlist.get("created_at", "1970-01-01T00:00:00Z").replace("Z", "+00:00"))
+
+            # Sort by 'added_at' or default to playlist_creation_date + 1 second
+            playlist["tracks"].sort(
+                key=lambda track: datetime.fromisoformat(track["added_at"].replace("Z", "+00:00")) 
+                if track.get("added_at") else playlist_creation_date,
+                reverse=True
+            )
 
         playlists += selected_playlists
 
@@ -312,7 +325,7 @@ def main():
 
                     f.write(f"{name}\t{artists}\t-\t{uri}\t{release_date}\r\n")
 
-    logging.info("Wrote file: " + args.file)
+    logging.info("Wrote file: %s", args.file)
 
 
 if __name__ == "__main__":
