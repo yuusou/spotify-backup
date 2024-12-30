@@ -155,7 +155,7 @@ def tui_select_playlists(playlists):
             stdscr.addstr(
                 0,
                 0,
-                "Select playlists to download (press SPACE to toggle, ENTER to confirm):",
+                "Select playlists to download (press SPACE to toggle, ENTER to confirm, + to move up, - to move down):",
                 curses.A_BOLD,
             )
 
@@ -179,6 +179,18 @@ def tui_select_playlists(playlists):
                     selected.remove(playlists[current_row])
                 else:
                     selected.append(playlists[current_row])
+            elif key == ord("+") and current_row > 0:  # Move current playlist up
+                # Swap playlists in the array
+                playlists[current_row], playlists[current_row - 1] = playlists[current_row - 1], playlists[current_row]
+                current_row -= 1
+                # Reorder the selected list to match the new order
+                selected = [p for p in playlists if p in selected]
+            elif key == ord("-") and current_row < len(playlists) - 1:  # Move current playlist down
+                # Swap playlists in the array
+                playlists[current_row], playlists[current_row + 1] = playlists[current_row + 1], playlists[current_row]
+                current_row += 1
+                # Reorder the selected list to match the new order
+                selected = [p for p in playlists if p in selected]
             elif key == ord("\n"):  # Enter key
                 break
 
@@ -260,7 +272,7 @@ def main():
         # If no playlists were selected, log and exit
         if not selected_playlists:
             logging.info("No playlists selected in TUI. Adding all playlists.")
-            selected_playlists = playlist_data
+            sys.exit(1)
 
         # List all tracks in each selected playlist
         for playlist in selected_playlists:
